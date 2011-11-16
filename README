@@ -1,0 +1,39 @@
+###############################################################################
+#
+# File:         README
+# RCS:          $Id: README,v 1.1 2009/11/09 02:46:33 npb853 Exp $
+# Description:  Readme file for simple virtual disk
+# Author:       Fabian E. Bustamante
+#               Northwestern Systems Research Group
+#               Department of Computer Science
+#               Northwestern University
+# Created:      Wed Nov 19, 2003 at 16:44:43
+# Modified:     Wed Nov 17, 2004 at 14:08:02 fabianb@cs.northwestern.edu
+# Language:     N/A
+# Package:      N/A
+# Status:       Experimental (Do Not Distribute)
+#
+# (C) Copyright 2003, Northwestern University, all rights reserved.
+#
+###############################################################################
+
+This is a very simple logical/virtual disk. It allocates SD_NUMSECTORS
+sectors of SD_SECTORSIZE each. It allows reads and writes simulating
+random I/O errors.
+
+Notice the SD_WITHERROR flag. Unseting this avoids the simulated
+random I/O errors.
+
+The interface, defined in sdisk.h includes:
+
+extern int SD_initDisk ();
+extern int SD_finalizeDisk();
+extern int SD_saveDisk(char* file);
+extern int SD_loadDisk(char* file);
+extern int SD_read (int sector, char *buf);
+extern int SD_write (int sector, char *buf);
+
+testsd.c is a trivial driver for simpledisk.
+
+fabian
+

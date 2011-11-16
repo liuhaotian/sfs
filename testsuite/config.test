@@ -1,0 +1,8 @@
+CC=gcc
+CFLAGS="-Wall -O3 -D_GNU_SOURCE -lm"
+DIFF="diff -b -B -q -s"
+VERBOSE=
+
+PROGS="testfs"
+ORIG_FILES="sdisk.h sdisk.c config.h"
+SRCS="sdisk.c sfs.c testfs.c"

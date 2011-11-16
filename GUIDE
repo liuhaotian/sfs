@@ -1,0 +1,39 @@
+Grading Sheet
+
+Starting from 100 points, the following are 'discounts'.
+The maximum penalty/points are given in parenthesis.
+
+1. (No) documentation (10)                               0
+2. (No) self-documented & commented code (10)            0
+3. It doesn't compile (100)                              0
+4. Compilation warning message (10, 2 per)               0
+5. Failed test cases (7.5 per)                           0
+6. Memory leaks (10)
+ a Memory leaks (warnings)  (1 per)                      0
+ b Memory leaks (definitive) (5 per)                     0
+
+
+Extra credit is added to your total points.
+
+7. Extra credit (20)                                     0
+
+
+Earn points in the competition by breaking the most other
+submissions with your test case.  You get more points if
+your code also passes your own test.
+
+8. Competition (up to 50)
+ a 1st, and you pass your own test (50)                  0
+ a 1st, and you fail your own test (35)                  0
+ a 2nd or 3rd, and you pass your own test (25)           0
+ a 2nd or 3rd, and you fail your own test (18)           0
+ a 4th or 5th, and you pass your own test (15)           0
+ a 4th or 5th, and you fail your own test (11)           0
+
+
+Total Points (100/170)                                 ???
+
+
+Late Penalty (10% per day or portion thereof)            0%
+
+GRADING POINTS (100)                                   ???
