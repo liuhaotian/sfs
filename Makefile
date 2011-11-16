@@ -18,7 +18,7 @@
 ###############################################################################
 
 # handin info
-TEAM = `whoami`
+TEAM = hlc720+gjw571
 VERSION = `date +%Y%m%d%H%M%S`
 PROJ = sfs
 
