@@ -29,34 +29,36 @@
 #define MAXINODE	2000//	minimun should be SD_NUMSECTORS/7, but the wores case is: each file takes one iNode, so the total number will reach 2000
 #define MAXFPTAB	2000//	for file descriptor table, it is in memory
 
-typedef struct inode_t {//	i-node structure
+typedef struct {//	i-node structure
 	//	some attributes
-	int		dir;//	bool, 1 means it is a directory
-	void*	toblock[7];
-	void*	toinode;// to next inode
-} inode;
+	int	dir;//	bool, 1 means it is a directory
+	int	toblock[7];//	to the sector ID
+	int	toinode;// to next inode
+} inode_t;
 
-typedef struct fptab_t {// file descriptor sturcture in memory
+typedef struct {// file descriptor sturcture in memory
 	void*	fptab[MAXFPTAB];
-} fptab;
+} fptab_t;
 
-typedef struct file_t {// file sturcture for file header, it is a file sturcture in the sector
+typedef struct {// file sturcture for file header, it is a file sturcture in the sector
 	char	name[17];// support for up to 16 characteristics, the last one should be \0
-	inode*	inode;// point back to its inode. whether it is a ture file ot a directory is defined in inode.
-} file;
+	inode_t*	inode;// point back to its inode. whether it is a ture file ot a directory is defined in inode.
+} file_t;
 
-typedef struct disk_t {// disk sturcture for disk header
+typedef struct {// disk sturcture for disk header
 	
-	inode			inode[MAXINODE];
-	unsigned char	bitmap[SD_NUMSECTORS/8];
-	inode			root;// reserve for root
-} disk;
+	inode_t			inode[MAXINODE];
+	unsigned char	bitmap[SD_NUMSECTORS/8];//	SD_NUMSECTORS/8, cause SD_NUMSECTORS is not power of two , we may waste the last several sectors
+	// we should alloc inode[0] for root
+	//inode			root;// reserve for root
+} disk_t;
 
-disk*	maindisk;
-fptab*	mainfptab;
+disk_t*		maindisk;
+fptab_t*	mainfptab;
 
 void fillbitmap(int sector);
 void emptybitmap(int sector);
+void init_inode(inode_t* inode);
 
 /*
  * sfs_mkfs: use to build your filesystem
@@ -67,8 +69,35 @@ void emptybitmap(int sector);
  *
  */
 int sfs_mkfs() {
-    // TODO: Implement
-    return -1;
+	maindisk = malloc(sizeof(disk_t));
+	
+	int i;
+	for(i = 0; i < MAXINODE; ++i)
+	{
+		init_inode(&((*maindisk).inode[i]));
+	}
+	for(i = 0; i < SD_NUMSECTORS/8; ++i)
+	{
+		(*maindisk).bitmap[i] = 0;
+	}
+	for(i = 0; i < sizeof(disk_t)/SD_SECTORSIZE + 1; ++i)//	here we plus one, because sizeof(disk_t)/SD_SECTORSIZE will be rounded, we should take consideration of the remainder
+	{
+		fillbitmap(i);
+	}
+	//	init root dir
+	(*maindisk).inode[0].dir = 1;
+	(*maindisk).inode[0].toblock[0] = sizeof(disk_t)/SD_SECTORSIZE + 1;//	next available sector
+	fillbitmap((*maindisk).inode[0].toblock[0]);
+	
+	
+	for(i = 0; i < sizeof(disk_t)/SD_SECTORSIZE; ++i)
+	{
+		SD_write(i, (void*)maindisk + i * SD_SECTORSIZE);
+	}
+	//SD_write(0, char *buf);
+	free(maindisk);
+	//return -1;
+	return 0;
 } /* !sfs_mkfs */
 
 /*
@@ -206,4 +235,14 @@ void fillbitmap(int sector){
 void emptybitmap(int sector){
 	unsigned char* bitmap=(*maindisk).bitmap;
 	bitmap[sector/8] &= (~(1<<(sector%8)));
+}
+
+void init_inode(inode_t* inode){
+	(*inode).dir = 0;
+	int i;
+	for(i = 0; i < 7; ++i)
+	{
+		(*inode).toblock[i] = 0;
+	}
+	(*inode).toinode = 0;
 }
