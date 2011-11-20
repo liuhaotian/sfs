@@ -64,7 +64,7 @@ void	emptybitmap(int sector);
 void	init_inode(inode_t* inode);
 void	init_dir(inode_t* thisdirinode, inode_t* upperdirinode);
 int		findanemptysector();
-int		findaemptyinode();
+int		findanemptyinode();
 
 /*
  * sfs_mkfs: use to build your filesystem
@@ -316,14 +316,29 @@ void init_dir(inode_t* thisdirinode, inode_t* upperdirinode){// to be done
 	
 }
 
-int		findanemptysector(){
+int findanemptysector(){
 	int ret;
+	unsigned char* bitmap=(*maindisk).bitmap;
 	for(ret = 1; ret < SD_NUMSECTORS; ++ret)
 	{
-
+		if(bitmap[ret/8] & (1<<(sector%8))){
+			return ret;
+		}
 	}
+	
+	printf("There is not enough room: no sector available.\n");
+	return -1;
 }
 
-int		findaemptyinode(){
+int findanemptyinode(){
+	int ret;
+	for(ret = 0; ret < MAXINODE; ++ret)
+	{
+		if((*maindisk).inode[ret].toblock[0] == 0){
+			return ret;
+		}
+	}
 	
+	printf("There is not enough room: no inode available.\n");
+	return -1;
 }
