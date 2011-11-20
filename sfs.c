@@ -103,6 +103,23 @@ int sfs_mkfs() {
 	file_t* upperdir;//	".."
 	thisdir = (void*)maindisk + (*maindisk).inode[0].toblock[0] * SD_SECTORSIZE;
 	upperdir = (void*)maindisk + (*maindisk).inode[0].toblock[0] * SD_SECTORSIZE + sizeof(file_t);
+	
+	//	file test for George code begin
+	file_t* atest;//test.txt
+	atest = (void*)maindisk + (*maindisk).inode[0].toblock[0] * SD_SECTORSIZE + 2 * sizeof(file_t);
+	
+	strcpy((*atest).name, "test.txt");
+	(*atest).inode = 1;// point to a new inode
+	
+	(*maindisk).inode[1].numsector = 1;
+	(*maindisk).inode[1].status = 2;
+	(*maindisk).inode[1].toblock[0] = sizeof(disk_t)/SD_SECTORSIZE + 1 * (sizeof(disk_t)%SD_SECTORSIZE != 0) +1;//	next available sector
+	fillbitmap((*maindisk).inode[1].toblock[0]);
+	
+	SD_write((*maindisk).inode[1].toblock[0], "This is a test file. The file name is test.txt. There should be a EOF sign, but I haven't implemented it yet.");
+	
+	//	file test code end
+	
 	strcpy((*thisdir).name, ".");
 	strcpy((*upperdir).name, "..");
 	(*thisdir).inode = 0;//	they point to the same inode, because root has no upper dir.
@@ -110,6 +127,7 @@ int sfs_mkfs() {
 	SD_write((*maindisk).inode[0].toblock[0], (void*)thisdir);//	write back the root as a file
 	
 	cwd = 0; // cwd indicate current working dir is inode[0], it is root dir
+	
 	
 	// write back the disk_t
 	for(i = 0; i < sizeof(disk_t)/SD_SECTORSIZE + 1 * (sizeof(disk_t)%SD_SECTORSIZE != 0); ++i)
