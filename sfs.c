@@ -65,6 +65,8 @@ void	init_inode(inode_t* inode);
 void	init_dir(inode_t* thisdirinode, inode_t* upperdirinode);
 int		findanemptysector();
 int		findanemptyinode();
+void*	inode_read(int inode);//	inode is the index of the inode array
+void	inode_write(int inode, void* data, int numsector);//	data is the point in the memory, numsector is the number of sector to be write
 
 /*
  * sfs_mkfs: use to build your filesystem
@@ -150,6 +152,7 @@ int sfs_mkfs() {
  *
  */
 int sfs_mkdir(char *name) {
+	/*
 	void* thisdir = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE);
 	file_t* tmpfile = thisdir;
 	
@@ -166,7 +169,10 @@ int sfs_mkdir(char *name) {
 			break;
 		}
 	}// dir read complete
-	
+	*/
+	void* thisdir = inode_read(cwd);
+	file_t* tmpfile = thisdir;
+	int tmpinode,i;
 	
 	//	find a place to save the "dir" file within the cwd
 	i = 0;
@@ -464,4 +470,27 @@ int findanemptyinode(){
 	
 	printf("There is not enough room: no inode available.\n");
 	return -1;
+}
+
+void*	inode_read(int inode){
+	void* ret = malloc((*maindisk).inode[inode].numsector * SD_SECTORSIZE);
+	
+	int tmpinode = inode;
+	int i = 0;
+	while(1){
+		SD_read((*maindisk).inode[tmpinode].toblock[i%7], ret + i * SD_SECTORSIZE);		
+		i++;
+		if(i%7 ==0){
+			
+			tmpinode = (*maindisk).inode[tmpinode].toinode;
+		}
+		if((tmpinode == -1) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){
+			break;
+		}
+	}
+	return ret;
+}
+
+void	inode_write(int inode, void* data, int numsector){
+	;
 }
