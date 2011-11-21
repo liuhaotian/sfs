@@ -170,7 +170,6 @@ int sfs_mkdir(char *name) {
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
 	while(1){
 		tmpfile = (void*)tmpfile + i * sizeof(file_t);
-		puts((*tmpfile).name);
 		if((*tmpfile).name[0] == 0){
 			break;
 		}
@@ -201,6 +200,23 @@ int sfs_mkdir(char *name) {
 	(*upperdir).inode = cwd;
 	SD_write((*maindisk).inode[(*tmpfile).inode].toblock[0], (void*)newdir);
 	
+	i = 0;
+	tmpinode = cwd;
+	while(1){
+		if(i == ((void*)tmpfile - thisdir) / SD_SECTORSIZE){
+			SD_write((*maindisk).inode[tmpinode].toblock[i%7], (void*)thisdir + i * SD_SECTORSIZE);
+			break;
+		}
+		i++;
+		if(i%7 ==0){
+			tmpinode = (*maindisk).inode[tmpinode].toinode;
+		}
+		if((tmpinode == -1) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){//	it can't be
+			break;
+		}
+	}
+	
+	
 	//	find a empty inode
 	//	find a empty sector
 	// if the cwd has not enough space, append a sector , append the inode.
@@ -220,8 +236,44 @@ int sfs_mkdir(char *name) {
  *
  */
 int sfs_fcd(char* name) {
-    // TODO: Implement
-    return -1;
+	void* thisdir = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE);
+	file_t* tmpfile = thisdir;
+	
+	int tmpinode = cwd;
+	int i = 0;
+	while(1){
+		SD_read((*maindisk).inode[tmpinode].toblock[i%7], thisdir + i * SD_SECTORSIZE);		
+		i++;
+		if(i%7 ==0){
+			tmpinode = (*maindisk).inode[tmpinode].toinode;
+		}
+		if((tmpinode == -1) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){
+			break;
+		}
+	}// dir read complete
+	
+	i = 0;
+	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
+	while(1){
+		tmpfile = (void*)tmpfile + i * sizeof(file_t);
+		if((tmpfile == tmpend) || (*tmpfile).name[0] == 0){
+			// 404 not found
+			return -1;
+		}
+		if(strcmp((*tmpfile).name,name) == 0){//	we find the dir
+			if((*maindisk).inode[(*tmpfile).inode].status == 1){
+				//	yes it is also a dir
+				cwd = (*tmpfile).inode;
+				return 0;
+			}
+			
+		}		
+		i++;	
+	}
+	
+	
+	return 0;
+//    return -1;
 } /* !sfs_fcd */
 
 /*
