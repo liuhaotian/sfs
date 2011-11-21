@@ -153,27 +153,9 @@ int sfs_mkfs() {
  *
  */
 int sfs_mkdir(char *name) {
-	/*
-	void* thisdir = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE);
-	file_t* tmpfile = thisdir;
-	
-	int tmpinode = cwd;
-	int i = 0;
-	while(1){
-		SD_read((*maindisk).inode[tmpinode].toblock[i%7], thisdir + i * SD_SECTORSIZE);		
-		i++;
-		if(i%7 ==0){
-			
-			tmpinode = (*maindisk).inode[tmpinode].toinode;
-		}
-		if((tmpinode == -1) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){
-			break;
-		}
-	}// dir read complete
-	*/
 	void* thisdir = inode_read(cwd);
 	file_t* tmpfile = thisdir;
-	int tmpinode,i;
+	int i;
 	
 	//	find a place to save the "dir" file within the cwd
 	i = 0;
@@ -183,30 +165,6 @@ int sfs_mkdir(char *name) {
 		
 		if((void*)tmpfile >= tmpend){
 			//	there is not enough space to save it
-			
-			/*
-			i =0;
-			tmpinode = cwd;
-			while(1){
-				i++;
-				if(i%7 ==0){
-					if((*maindisk).inode[tmpinode].toinode == -1){
-						(*maindisk).inode[tmpinode].toinode = findanemptyinode();
-						tmpinode = (*maindisk).inode[tmpinode].toinode;
-						(*maindisk).inode[tmpinode].toblock[i%7] = findanemptysector();
-						fillbitmap((*maindisk).inode[tmpinode].toblock[i%7]);
-						(*maindisk).inode[cwd].numsector++;
-						break;				
-					}
-					tmpinode = (*maindisk).inode[tmpinode].toinode;
-				}
-				if((*maindisk).inode[tmpinode].toblock[i%7] == 0){
-					(*maindisk).inode[tmpinode].toblock[i%7] = findanemptysector();
-					fillbitmap((*maindisk).inode[tmpinode].toblock[i%7]);
-					(*maindisk).inode[cwd].numsector++;
-					break;
-				}
-			}*/
 			inode_append(cwd);
 			void* tmpdir = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE);// use a new memory
 			tmpfile = tmpdir + ((void*)tmpfile - thisdir);
@@ -245,23 +203,9 @@ int sfs_mkdir(char *name) {
 	
 	//	write back the current working dir
 	inode_write(cwd, thisdir);
-/*	i = 0;
-	tmpinode = cwd;
-	while(1){
-		SD_write((*maindisk).inode[tmpinode].toblock[i%7], (void*)thisdir + i * SD_SECTORSIZE);
-			
-		i++;
-		if(i%7 ==0){
-			tmpinode = (*maindisk).inode[tmpinode].toinode;
-		}
-		if((tmpinode == -1) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){//	it can't be
-			break;
-		}
-	}*/
 		
 	free(thisdir);
 	return 0;
-//	return -1;
 } /* !sfs_mkdir */
 
 /*
