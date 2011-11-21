@@ -39,7 +39,7 @@ typedef struct {//	i-node structure
 } inode_t;
 
 typedef struct {// file descriptor sturcture in memory
-	void*	fptab[MAXFPTAB];
+	int	fptab[MAXFPTAB];// the inode of the file
 } fptab_t;
 
 typedef struct {// file sturcture for file header, it is a file sturcture in the sector
