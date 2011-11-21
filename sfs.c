@@ -159,6 +159,7 @@ int sfs_mkdir(char *name) {
 		SD_read((*maindisk).inode[tmpinode].toblock[i%7], thisdir + i * SD_SECTORSIZE);		
 		i++;
 		if(i%7 ==0){
+			
 			tmpinode = (*maindisk).inode[tmpinode].toinode;
 		}
 		if((tmpinode == -1) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){
@@ -166,15 +167,46 @@ int sfs_mkdir(char *name) {
 		}
 	}// dir read complete
 	
+	
+	//	find a place to save the "dir" file within the cwd
 	i = 0;
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
 	while(1){
-		tmpfile = (void*)tmpfile + i * sizeof(file_t);
-		if((*tmpfile).name[0] == 0){
+		tmpfile = (void*)tmpfile + sizeof(file_t);
+		
+		if((void*)tmpfile >= tmpend){
+			//	there is not enough space to save it
+			i =0;
+			tmpinode = cwd;
+			while(1){
+				i++;
+				if(i%7 ==0){
+					if((*maindisk).inode[tmpinode].toinode == -1){
+						(*maindisk).inode[tmpinode].toinode = findanemptyinode();
+						tmpinode = (*maindisk).inode[tmpinode].toinode;
+						(*maindisk).inode[tmpinode].toblock[i%7] = findanemptysector();
+						fillbitmap((*maindisk).inode[tmpinode].toblock[i%7]);
+						(*maindisk).inode[cwd].numsector++;
+						break;				
+					}
+					tmpinode = (*maindisk).inode[tmpinode].toinode;
+				}
+				if((*maindisk).inode[tmpinode].toblock[i%7] == 0){
+					(*maindisk).inode[tmpinode].toblock[i%7] = findanemptysector();
+					fillbitmap((*maindisk).inode[tmpinode].toblock[i%7]);
+					(*maindisk).inode[cwd].numsector++;
+					break;
+				}
+			}
+			void* tmpdir = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE);
+			tmpfile = tmpdir + ((void*)tmpfile - thisdir);
+			memcpy(tmpdir, thisdir, ((*maindisk).inode[cwd].numsector - 1 )* SD_SECTORSIZE);
+			free(thisdir);
+			thisdir = tmpdir;
 			break;
 		}
-		if(tmpfile == tmpend){
-			//	there is not enough space to save it
+		if((*tmpfile).name[0] == 0){
+			break;
 		}
 		i++;
 		
@@ -200,13 +232,13 @@ int sfs_mkdir(char *name) {
 	(*upperdir).inode = cwd;
 	SD_write((*maindisk).inode[(*tmpfile).inode].toblock[0], (void*)newdir);
 	
+	
+	//	write back the current working dir
 	i = 0;
 	tmpinode = cwd;
 	while(1){
-		if(i == ((void*)tmpfile - thisdir) / SD_SECTORSIZE){
-			SD_write((*maindisk).inode[tmpinode].toblock[i%7], (void*)thisdir + i * SD_SECTORSIZE);
-			break;
-		}
+		SD_write((*maindisk).inode[tmpinode].toblock[i%7], (void*)thisdir + i * SD_SECTORSIZE);
+			
 		i++;
 		if(i%7 ==0){
 			tmpinode = (*maindisk).inode[tmpinode].toinode;
@@ -255,7 +287,7 @@ int sfs_fcd(char* name) {
 	i = 0;
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
 	while(1){
-		tmpfile = (void*)tmpfile + i * sizeof(file_t);
+		tmpfile = (void*)tmpfile + sizeof(file_t);
 		if((tmpfile == tmpend) || (*tmpfile).name[0] == 0){
 			// 404 not found
 			return -1;
