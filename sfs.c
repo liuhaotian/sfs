@@ -65,8 +65,8 @@ void	init_inode(inode_t* inode);
 void	init_dir(inode_t* thisdirinode, inode_t* upperdirinode);
 int		findanemptysector();
 int		findanemptyinode();
-void*	inode_read(int inode);//	inode is the index of the inode array, don't forget to free it
-void	inode_append(int inode);// only append a sector fot that inode, and fill the bitmap
+void*	inode_read(int inode);//	inode is the index of the inode array, don't forget to free it, return NULL not found!
+int		inode_append(int inode);// only append a sector fot that inode, and fill the bitmap, return 0 successfully, return -1 fail
 void	inode_write(int inode, void* data);//	data is the point in the memory, you should append the inode first!!!!!
 
 /*
@@ -119,7 +119,7 @@ int sfs_mkfs() {
 	(*maindisk).inode[1].toblock[0] = sizeof(disk_t)/SD_SECTORSIZE + 1 * (sizeof(disk_t)%SD_SECTORSIZE != 0) +1;//	next available sector
 	fillbitmap((*maindisk).inode[1].toblock[0]);
 	char testtxt[512] = "This is a test file. The file name is test.txt. There should be a EOF sign, but I haven't implemented it yet.";
-	SD_write((*maindisk).inode[1].toblock[0], testtxt);
+	while(SD_write((*maindisk).inode[1].toblock[0], testtxt));
 	
 	//	file test code end
 	
@@ -127,7 +127,7 @@ int sfs_mkfs() {
 	strcpy((*upperdir).name, "..");
 	(*thisdir).inode = 0;//	they point to the same inode, because root has no upper dir.
 	(*upperdir).inode = 0;
-	SD_write((*maindisk).inode[0].toblock[0], (void*)thisdir);//	write back the root as a file
+	while(SD_write((*maindisk).inode[0].toblock[0], (void*)thisdir));//	write back the root as a file
 	
 	cwd = 0; // cwd indicate current working dir is inode[0], it is root dir
 	
@@ -135,10 +135,10 @@ int sfs_mkfs() {
 	// write back the disk_t
 	for(i = 0; i < sizeof(disk_t)/SD_SECTORSIZE + 1 * (sizeof(disk_t)%SD_SECTORSIZE != 0); ++i)
 	{
-		SD_write(i, (void*)maindisk + i * SD_SECTORSIZE);
+		while(SD_write(i, (void*)maindisk + i * SD_SECTORSIZE));
 	}
 	//SD_write(0, char *buf);
-//	free(maindisk);
+//	free(maindisk);// always keep it.
 //	maindisk = 0;
 	//return -1;
 	return 0;
@@ -155,17 +155,18 @@ int sfs_mkfs() {
 int sfs_mkdir(char *name) {
 	void* thisdir = inode_read(cwd);
 	file_t* tmpfile = thisdir;
-	int i;
 	
 	//	find a place to save the "dir" file within the cwd
-	i = 0;
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
 	while(1){
 		tmpfile = (void*)tmpfile + sizeof(file_t);
 		
 		if((void*)tmpfile >= tmpend){
 			//	there is not enough space to save it
-			inode_append(cwd);
+			if(inode_append(cwd)){
+				free(thisdir);
+				return -1;
+			}
 			void* tmpdir = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE);// use a new memory
 			tmpfile = tmpdir + ((void*)tmpfile - thisdir);
 			memcpy(tmpdir, thisdir, ((*maindisk).inode[cwd].numsector - 1 )* SD_SECTORSIZE);
@@ -176,16 +177,21 @@ int sfs_mkdir(char *name) {
 		if((*tmpfile).name[0] == 0){
 			break;
 		}
-		i++;
-		
 	}
 	
 	strcpy((*tmpfile).name, name);
 	(*tmpfile).inode = findanemptyinode();
-	
+	if((*tmpfile).inode == -1){
+		free(thisdir);
+		return -1;
+	}
 	(*maindisk).inode[(*tmpfile).inode].numsector = 1;
 	(*maindisk).inode[(*tmpfile).inode].status = 1;
 	(*maindisk).inode[(*tmpfile).inode].toblock[0] = findanemptysector();
+	if((*maindisk).inode[(*tmpfile).inode].toblock[0] == -1){
+		free(thisdir);
+		return -1;
+	}
 	fillbitmap((*maindisk).inode[(*tmpfile).inode].toblock[0]);
 	
 	char data[512]="";
@@ -198,7 +204,7 @@ int sfs_mkdir(char *name) {
 	strcpy((*upperdir).name, "..");
 	(*newdir).inode = (*tmpfile).inode;//	new dir's inode
 	(*upperdir).inode = cwd;
-	SD_write((*maindisk).inode[(*tmpfile).inode].toblock[0], (void*)newdir);
+	while(SD_write((*maindisk).inode[(*tmpfile).inode].toblock[0], (void*)newdir));
 	
 	
 	//	write back the current working dir
@@ -217,43 +223,27 @@ int sfs_mkdir(char *name) {
  *
  */
 int sfs_fcd(char* name) {
-	void* thisdir = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE);
+	void* thisdir = inode_read(cwd);
 	file_t* tmpfile = thisdir;
 	
-	int tmpinode = cwd;
-	int i = 0;
-	while(1){
-		SD_read((*maindisk).inode[tmpinode].toblock[i%7], thisdir + i * SD_SECTORSIZE);		
-		i++;
-		if(i%7 ==0){
-			tmpinode = (*maindisk).inode[tmpinode].toinode;
-		}
-		if((tmpinode == -1) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){
-			break;
-		}
-	}// dir read complete
-	
-	i = 0;
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
 	while(1){
 		tmpfile = (void*)tmpfile + sizeof(file_t);
-		if((tmpfile == tmpend) || (*tmpfile).name[0] == 0){
-			// 404 not found
-			return -1;
+		if(((void*)tmpfile >= tmpend) || (*tmpfile).name[0] == 0){
+			// 404 not found		
+			break;
 		}
 		if(strcmp((*tmpfile).name,name) == 0){//	we find the dir
 			if((*maindisk).inode[(*tmpfile).inode].status == 1){
 				//	yes it is also a dir
 				cwd = (*tmpfile).inode;
 				return 0;
-			}
-			
+			}			
 		}		
-		i++;	
 	}
 	
-	
-	return 0;
+	puts("sfs_fcd: dir not found!");
+	return -1;
 //    return -1;
 } /* !sfs_fcd */
 
@@ -398,7 +388,7 @@ int findanemptysector(){
 		}
 	}
 	
-	printf("There is not enough room: no sector available.\n");
+	puts("findanemptysector: no sector available.");
 	return -1;
 }
 
@@ -411,7 +401,7 @@ int findanemptyinode(){
 		}
 	}
 	
-	printf("There is not enough room: no inode available.\n");
+	puts("findanemptyinode: no inode available!");
 	return -1;
 }
 
@@ -421,7 +411,7 @@ void*	inode_read(int inode){
 	int tmpinode = inode;
 	int i = 0;
 	while(1){
-		SD_read((*maindisk).inode[tmpinode].toblock[i%7], ret + i * SD_SECTORSIZE);		
+		while(SD_read((*maindisk).inode[tmpinode].toblock[i%7], ret + i * SD_SECTORSIZE));
 		i++;
 		if(i%7 ==0){
 			
@@ -434,16 +424,20 @@ void*	inode_read(int inode){
 	return ret;
 }
 
-void	inode_append(int inode){
+int		inode_append(int inode){
 	int i = 0;
 	int tmpinode = inode;
 	while(1){
 		i++;
 		if(i%7 ==0){
 			if((*maindisk).inode[tmpinode].toinode == -1){
-				(*maindisk).inode[tmpinode].toinode = findanemptyinode();
+				if(-1 == ((*maindisk).inode[tmpinode].toinode = findanemptyinode())){
+					return -1;
+				}
 				tmpinode = (*maindisk).inode[tmpinode].toinode;
-				(*maindisk).inode[tmpinode].toblock[i%7] = findanemptysector();
+				if(-1 == ((*maindisk).inode[tmpinode].toblock[i%7] = findanemptysector())){
+					return -1;
+				}
 				fillbitmap((*maindisk).inode[tmpinode].toblock[i%7]);
 				(*maindisk).inode[inode].numsector++;
 				break;				
@@ -451,19 +445,22 @@ void	inode_append(int inode){
 			tmpinode = (*maindisk).inode[tmpinode].toinode;
 		}
 		if((*maindisk).inode[tmpinode].toblock[i%7] == 0){
-			(*maindisk).inode[tmpinode].toblock[i%7] = findanemptysector();
+			if(-1 == ((*maindisk).inode[tmpinode].toblock[i%7] = findanemptysector())){
+				return -1;
+			}
 			fillbitmap((*maindisk).inode[tmpinode].toblock[i%7]);
 			(*maindisk).inode[inode].numsector++;
 			break;
 		}
 	}
+	return 0;
 }
 
-void	inode_write(int inode, void* data){
+void		inode_write(int inode, void* data){
 	int i = 0;
 	int tmpinode = inode;
 	while(1){
-		SD_write((*maindisk).inode[tmpinode].toblock[i%7], (void*)data + i * SD_SECTORSIZE);
+		while(SD_write((*maindisk).inode[tmpinode].toblock[i%7], (void*)data + i * SD_SECTORSIZE));
 			
 		i++;
 		if(i%7 ==0){
