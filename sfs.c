@@ -115,8 +115,8 @@ int sfs_mkfs() {
 	(*maindisk).inode[1].status = 2;
 	(*maindisk).inode[1].toblock[0] = sizeof(disk_t)/SD_SECTORSIZE + 1 * (sizeof(disk_t)%SD_SECTORSIZE != 0) +1;//	next available sector
 	fillbitmap((*maindisk).inode[1].toblock[0]);
-	
-	SD_write((*maindisk).inode[1].toblock[0], "This is a test file. The file name is test.txt. There should be a EOF sign, but I haven't implemented it yet.");
+	char testtxt[512] = "This is a test file. The file name is test.txt. There should be a EOF sign, but I haven't implemented it yet.";
+	SD_write((*maindisk).inode[1].toblock[0], testtxt);
 	
 	//	file test code end
 	
@@ -135,7 +135,8 @@ int sfs_mkfs() {
 		SD_write(i, (void*)maindisk + i * SD_SECTORSIZE);
 	}
 	//SD_write(0, char *buf);
-	free(maindisk);
+//	free(maindisk);
+//	maindisk = 0;
 	//return -1;
 	return 0;
 } /* !sfs_mkfs */
@@ -150,25 +151,63 @@ int sfs_mkfs() {
  */
 int sfs_mkdir(char *name) {
 	void* thisdir = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE);
-	int i=0;
-	int tmpinode;
-	tmpinode = cwd;
+	file_t* tmpfile = thisdir;
+	
+	int tmpinode = cwd;
+	int i = 0;
 	while(1){
 		SD_read((*maindisk).inode[tmpinode].toblock[i%7], thisdir + i * SD_SECTORSIZE);		
 		i++;
 		if(i%7 ==0){
 			tmpinode = (*maindisk).inode[tmpinode].toinode;
 		}
-		if((tmpinode == 0) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){
+		if((tmpinode == -1) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){
 			break;
 		}
 	}// dir read complete
+	
+	i = 0;
+	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
+	while(1){
+		tmpfile = (void*)tmpfile + i * sizeof(file_t);
+		puts((*tmpfile).name);
+		if((*tmpfile).name[0] == 0){
+			break;
+		}
+		if(tmpfile == tmpend){
+			//	there is not enough space to save it
+		}
+		i++;
+		
+	}
+	
+	strcpy((*tmpfile).name, name);
+	(*tmpfile).inode = findanemptyinode();
+	
+	(*maindisk).inode[(*tmpfile).inode].numsector = 1;
+	(*maindisk).inode[(*tmpfile).inode].status = 1;
+	(*maindisk).inode[(*tmpfile).inode].toblock[0] = findanemptysector();
+	fillbitmap((*maindisk).inode[(*tmpfile).inode].toblock[0]);
+	
+	char data[512]="";
+	
+	file_t* newdir;//	"."
+	file_t* upperdir;//	".."
+	newdir = (void*)data;
+	upperdir = (void*)data + sizeof(file_t);
+	strcpy((*newdir).name, ".");
+	strcpy((*upperdir).name, "..");
+	(*newdir).inode = (*tmpfile).inode;//	new dir's inode
+	(*upperdir).inode = cwd;
+	SD_write((*maindisk).inode[(*tmpfile).inode].toblock[0], (void*)newdir);
 	
 	//	find a empty inode
 	//	find a empty sector
 	// if the cwd has not enough space, append a sector , append the inode.
 	//	add a new dir type file into the cwd, link the inode, link the sector, numsector++
 	
+	free(thisdir);
+	return 0;
 //	return -1;
 } /* !sfs_mkdir */
 
@@ -303,7 +342,7 @@ void init_inode(inode_t* inode){
 	{
 		(*inode).toblock[i] = 0;
 	}
-	(*inode).toinode = 0;
+	(*inode).toinode = -1;
 }
 
 void init_dir(inode_t* thisdirinode, inode_t* upperdirinode){// to be done
@@ -321,7 +360,7 @@ int findanemptysector(){
 	unsigned char* bitmap=(*maindisk).bitmap;
 	for(ret = 1; ret < SD_NUMSECTORS; ++ret)
 	{
-		if(bitmap[ret/8] & (1<<(sector%8))){
+		if(!(bitmap[ret/8] & (1<<(ret%8)))){
 			return ret;
 		}
 	}
