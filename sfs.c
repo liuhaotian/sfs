@@ -223,8 +223,33 @@ int sfs_mkdir(char *name) {
  *
  */
 int sfs_fcd(char* name) {
+	int prevcwd = cwd;
+	if(name[0] == 0)
+	{
+		return 0;
+	}
+	else if(name[0] == '/'){
+		cwd = 0;// change to root;
+		if(sfs_fcd(name + 1)){//fail
+			cwd = prevcwd;
+			puts("sfs_fcd: dir not found!");
+			return -1;
+		}
+		else{
+			return 0;
+		}
+	}
 	void* thisdir = inode_read(cwd);
 	file_t* tmpfile = thisdir;
+	int i,slash = 0;
+	for(i = 0; name[i] != 0; ++i)
+	{
+		if(name[i] == '/'){
+			slash = i;
+			//name[i] = 0;
+			break;
+		}
+	}
 	
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
 	while(1){
@@ -233,10 +258,20 @@ int sfs_fcd(char* name) {
 			// 404 not found		
 			break;
 		}
-		if(strcmp((*tmpfile).name,name) == 0){//	we find the dir
+		if(strncmp((*tmpfile).name,name, i) == 0){//	we find the dir
 			if((*maindisk).inode[(*tmpfile).inode].status == 1){
 				//	yes it is also a dir
 				cwd = (*tmpfile).inode;
+				if(slash){// we still need to fina out the dir
+					if(sfs_fcd(name + slash + 1)){//fail
+						cwd = prevcwd;
+						puts("sfs_fcd: dir not found!");
+						return -1;
+					}
+					else{
+						return 0;
+					}
+				}
 				return 0;
 			}			
 		}		
@@ -257,8 +292,8 @@ int sfs_fcd(char* name) {
  *
  */
 int sfs_ls(FILE* f) {
-    // TODO: Implement
-    return -1;
+	
+	return -1;
 } /* !sfs_ls */
 
 /*
