@@ -232,7 +232,7 @@ int sfs_fcd(char* name) {
 		cwd = 0;// change to root;
 		if(sfs_fcd(name + 1)){//fail
 			cwd = prevcwd;
-			puts("sfs_fcd: dir not found!");
+			//puts("sfs_fcd: dir not found!");
 			return -1;
 		}
 		else{
@@ -265,7 +265,7 @@ int sfs_fcd(char* name) {
 				if(slash){// we still need to fina out the dir
 					if(sfs_fcd(name + slash + 1)){//fail
 						cwd = prevcwd;
-						puts("sfs_fcd: dir not found!");
+						//puts("sfs_fcd: dir not found!");
 						return -1;
 					}
 					else{
@@ -277,7 +277,7 @@ int sfs_fcd(char* name) {
 		}		
 	}
 	
-	puts("sfs_fcd: dir not found!");
+	//puts("sfs_fcd: dir not found!");
 	return -1;
 //    return -1;
 } /* !sfs_fcd */
@@ -292,8 +292,31 @@ int sfs_fcd(char* name) {
  *
  */
 int sfs_ls(FILE* f) {
+	void* thisdir = inode_read(cwd);
+	file_t* tmpfile = thisdir;
 	
-	return -1;
+	//	find all the file within the cwd
+	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
+	while(1){
+		
+		
+		if((void*)tmpfile >= tmpend){
+			break;
+		}
+		if((*tmpfile).name[0] == 0){
+			break;
+		}
+		else if((*tmpfile).name[0] == '.'){
+			tmpfile = (void*)tmpfile + sizeof(file_t);
+			continue;
+		}
+		puts((*tmpfile).name);
+		tmpfile = (void*)tmpfile + sizeof(file_t);
+	}
+		
+	free(thisdir);
+	return 0;
+//	return -1;
 } /* !sfs_ls */
 
 /*
@@ -423,7 +446,7 @@ int findanemptysector(){
 		}
 	}
 	
-	puts("findanemptysector: no sector available.");
+	//puts("findanemptysector: no sector available.");
 	return -1;
 }
 
@@ -436,7 +459,7 @@ int findanemptyinode(){
 		}
 	}
 	
-	puts("findanemptyinode: no inode available!");
+	//puts("findanemptyinode: no inode available!");
 	return -1;
 }
 
