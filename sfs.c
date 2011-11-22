@@ -79,7 +79,7 @@ void	inode_write(int inode, void* data);//	data is the point in the memory, you 
  */
 int sfs_mkfs() {
 	maindisk = malloc(sizeof(disk_t));
-	mainfptab = malloc(MAXFPTAB * sizeof(int));
+	mainfptab = malloc(sizeof(fptab_t));
 
 	int i;
 	for(i = 0; i < MAXINODE; ++i)
@@ -377,6 +377,7 @@ int sfs_fopen(char* name) {
 				tmpfile = tmp + ((void*)tmpfile - currentdir);
 				
 				memcpy(tmp, currentdir, ((*maindisk).inode[cwd].numsector - 1) * SD_SECTORSIZE);
+				free(currentdir);
 				currentdir = tmp;
 				break;
 			}
@@ -388,6 +389,7 @@ int sfs_fopen(char* name) {
 		(*tmpfile).inode = findanemptyinode();
 		if ((*tmpfile).inode == -1) { // couldn't find an empty inode
 			free(currentdir);
+			
 			return -1; 	
 		}
 		(*maindisk).inode[(*tmpfile).inode].numsector = 1; // initialize our new file's inode values
