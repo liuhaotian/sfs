@@ -317,7 +317,8 @@ int sfs_ls(FILE* f) {
 			tmpfile = (void*)tmpfile + sizeof(file_t);
 			continue;
 		}
-		puts((*tmpfile).name);
+		fprintf(f, "%s\n", (*tmpfile).name);
+		//puts((*tmpfile).name);
 		tmpfile = (void*)tmpfile + sizeof(file_t);
 	}
 		
@@ -389,7 +390,6 @@ int sfs_fopen(char* name) {
 		(*tmpfile).inode = findanemptyinode();
 		if ((*tmpfile).inode == -1) { // couldn't find an empty inode
 			free(currentdir);
-			
 			return -1; 	
 		}
 		(*maindisk).inode[(*tmpfile).inode].numsector = 1; // initialize our new file's inode values
