@@ -40,6 +40,7 @@ typedef struct {//	i-node structure
 
 typedef struct {// file descriptor sturcture in memory
 	int	fptab[MAXFPTAB];// the inode of the file
+	int	pos[MAXFPTAB];
 } fptab_t;
 
 typedef struct {// file sturcture for file header, it is a file sturcture in the sector
@@ -68,6 +69,7 @@ int		findanemptyinode();
 void*	inode_read(int inode);//	inode is the index of the inode array, don't forget to free it, return NULL not found!
 int		inode_append(int inode);// only append a sector fot that inode, and fill the bitmap, return 0 successfully, return -1 fail
 void	inode_write(int inode, void* data);//	data is the point in the memory, you should append the inode first!!!!!
+void	inode_erase(int inode);//	erase the inode, including emptybitmap and init_inode
 
 /*
  * sfs_mkfs: use to build your filesystem
@@ -101,6 +103,7 @@ int sfs_mkfs() {
 	for (i = 0; i < MAXFPTAB; ++i)
 	{
 		(*mainfptab).fptab[i] = 0;
+		(*mainfptab).pos[i] = 0;
 	}
 	
 	//	init root dir
@@ -491,8 +494,36 @@ int sfs_lseek(int fileID, int position) {
  * Returns: 0 on success, or -1 if an error occurred
  */
 int sfs_rm(char *file_name) {
-    // TODO: Implement for extra credit
-    return -1;
+	void* thisdir = inode_read(cwd);
+	file_t* tmpfile = thisdir;
+	
+	//	find the file within the cwd
+	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
+	while(1){
+		tmpfile = (void*)tmpfile + sizeof(file_t);
+		
+		if(((void*)tmpfile >= tmpend) || ((*tmpfile).name[0] == 0)){
+			//	404 not found
+			free(thisdir);
+			return -1;
+		}
+		if(strcmp((*tmpfile).name, file_name) == 0){
+			break;
+		}
+	}
+
+	//    erase the inode
+	inode_erase((*tmpfile).inode);
+	
+	strcpy((*tmpfile).name, ".");
+	(*tmpfile).inode = cwd;
+	
+	//	write back the current working dir
+	inode_write(cwd, thisdir);
+		
+	free(thisdir);
+	return 0;
+//return -1;
 } /* !sfs_rm */
 
 void fillbitmap(int sector){
@@ -507,6 +538,7 @@ void emptybitmap(int sector){
 
 void init_inode(inode_t* inode){
 	(*inode).status = 0;
+	(*inode).numsector = 0;
 	int i;
 	for(i = 0; i < 7; ++i)
 	{
@@ -603,7 +635,7 @@ int		inode_append(int inode){
 	return 0;
 }
 
-void		inode_write(int inode, void* data){
+void	inode_write(int inode, void* data){
 	int i = 0;
 	int tmpinode = inode;
 	while(1){
@@ -616,5 +648,28 @@ void		inode_write(int inode, void* data){
 		if((tmpinode == -1) || ((*maindisk).inode[tmpinode].toblock[i%7] == 0)){//	it can't be
 			break;
 		}
+	}
+}
+
+void	inode_erase(int inode){
+	int tmpinode = inode;
+	int preinode;
+	int i = 0;
+	while(1){
+		emptybitmap((*maindisk).inode[tmpinode].toblock[i%7]);
+		
+		i++;
+		if(i%7 ==0){
+			preinode = tmpinode;
+			tmpinode = (*maindisk).inode[tmpinode].toinode;
+			init_inode(&((*maindisk).inode[preinode]));
+		}
+		if(tmpinode == -1){
+			break;
+		}
+		if((*maindisk).inode[tmpinode].toblock[i%7] == 0){
+			init_inode(&((*maindisk).inode[tmpinode]));
+			break;
+		}	
 	}
 }
