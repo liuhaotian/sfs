@@ -33,6 +33,7 @@
 typedef struct {//	i-node structure
 	//	some attributes
 	int numsector;// how many sectors is been used
+	int size;//		0 for dir, amount of bytes for the file
 	int	status;//	0 means unused, 1 means it is a directory, 2 means it is a file
 	int	toblock[7];//	to the sector ID
 	int	toinode;// to next inode
@@ -436,6 +437,7 @@ int sfs_fclose(int fileID) {
 	int i = fileID - 1;
 	if ( (*mainfptab).fptab[i] != 0 ) {
 		(*mainfptab).fptab[i] = 0;
+		(*mainfptab).pos[i] = 0;
 		return 0;
 	}
     return -1;
@@ -538,6 +540,7 @@ void emptybitmap(int sector){
 
 void init_inode(inode_t* inode){
 	(*inode).status = 0;
+	(*inode).size = 0;
 	(*inode).numsector = 0;
 	int i;
 	for(i = 0; i < 7; ++i)
