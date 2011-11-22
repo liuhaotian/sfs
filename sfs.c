@@ -79,7 +79,8 @@ void	inode_write(int inode, void* data);//	data is the point in the memory, you 
  */
 int sfs_mkfs() {
 	maindisk = malloc(sizeof(disk_t));
-	
+	mainfptab = malloc(MAXFPTAB * sizeof(int));
+
 	int i;
 	for(i = 0; i < MAXINODE; ++i)
 	{
@@ -94,6 +95,12 @@ int sfs_mkfs() {
 	for(i = 0; i < sizeof(disk_t)/SD_SECTORSIZE + 1 * (sizeof(disk_t)%SD_SECTORSIZE != 0); ++i)
 	{
 		fillbitmap(i);
+	}
+
+	// init table
+	for (i = 0; i < MAXFPTAB; ++i)
+	{
+		(*mainfptab).fptab[i] = 0;
 	}
 	
 	//	init root dir
@@ -331,7 +338,82 @@ int sfs_ls(FILE* f) {
  *
  */
 int sfs_fopen(char* name) {
-    // TODO: Implement
+    // look through cwd inode for name, store int index for file inode, if not there make new inode file, store in cwd inode, and store inode as return index
+	void* currentdir = inode_read(cwd);
+	file_t* tmpfile = currentdir;
+
+	int filenode; // storing inode index
+	int newfile = 0; // to continue and make newfile or not
+
+	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + currentdir - sizeof(file_t); // last file
+	while (1) {		
+		// look through cwd for name match
+		if ((void*)tmpfile >= tmpend) { // if end and we found nothing
+			newfile = 1;
+			break;
+		}
+
+		if ( !strcmp( (*tmpfile).name, name )) { // found a matching file
+			filenode = (*tmpfile).inode; // set the inode			
+			break;
+		}
+
+		tmpfile = (void*)tmpfile + sizeof(file_t);
+	}
+
+	if (newfile) { // need to create a newfile	
+		// get inode, add file_t to end of cwd, and set filenode to the inode
+		tmpfile = currentdir;
+		while (1) {
+			tmpfile = (void*)tmpfile + sizeof(file_t);
+			
+			if ( (void*)tmpfile >= tmpend ) { // not enough space, need to append our inode with additional sector
+				if (inode_append(cwd)) {
+					free(currentdir);
+					return -1;
+				}
+				
+				void* tmp = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE); // new memory allocated
+				tmpfile = tmp + ((void*)tmpfile - currentdir);
+				
+				memcpy(tmp, currentdir, ((*maindisk).inode[cwd].numsector - 1) * SD_SECTORSIZE);
+				currentdir = tmp;
+				break;
+			}
+			if ((*tmpfile).name[0] == 0)
+				break;
+		}
+
+		strcpy( (*tmpfile).name, name); // copy our name to the tmpfile
+		(*tmpfile).inode = findanemptyinode();
+		if ((*tmpfile).inode == -1) { // couldn't find an empty inode
+			free(currentdir);
+			return -1; 	
+		}
+		(*maindisk).inode[(*tmpfile).inode].numsector = 1; // initialize our new file's inode values
+		(*maindisk).inode[(*tmpfile).inode].status = 2; // a file
+		(*maindisk).inode[(*tmpfile).inode].toblock[0] = findanemptysector();
+		if ((*maindisk).inode[(*tmpfile).inode].toblock[0] == -1) { // couldn't find an empty sector for file's data
+			free(currentdir);
+			return -1;
+		}
+		fillbitmap((*maindisk).inode[(*tmpfile).inode].toblock[0]); // new sector to include in our bitmap
+		
+		filenode = (*tmpfile).inode; // set our new file inode to the one just created	
+	}
+
+	// look through table for first empty, set it to int file inode and return index of array
+	int i = 0;
+	while (i < MAXFPTAB)
+	{
+		if ( ((*mainfptab).fptab[i]) == 0) { // found an empty slot
+			(*mainfptab).fptab[i] = filenode; // set it to our file inode
+			free(currentdir);
+			return i + 1; // the index + 1 for the file descriptor
+		}
+		i++;
+	}
+	free(currentdir);
     return -1;
 } /* !sfs_fopen */
 
@@ -345,7 +427,12 @@ int sfs_fopen(char* name) {
  *
  */
 int sfs_fclose(int fileID) {
-    // TODO: Implement
+    // just free the table array entry for index fileID, return 0
+	int i = fileID - 1;
+	if ( (*mainfptab).fptab[i] != 0 ) {
+		(*mainfptab).fptab[i] = 0;
+		return 0;
+	}
     return -1;
 } /* !sfs_fclose */
 
