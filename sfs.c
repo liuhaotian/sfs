@@ -618,6 +618,7 @@ void emptybitmap(int sector){
 void init_inode(inode_t* inode){
 	(*inode).status = 0;
 	(*inode).numsector = 0;
+	(*inode).size = 0;
 	int i;
 	for(i = 0; i < 7; ++i)
 	{
