@@ -383,6 +383,7 @@ int sfs_fopen(char* name) {
 		}
 		(*maindisk).inode[(*tmpfile).inode].numsector = 1; // initialize our new file's inode values
 		(*maindisk).inode[(*tmpfile).inode].status = 2; // a file
+		(*maindisk).inode[(*tmpfile).inode].size = 0; //size
 		(*maindisk).inode[(*tmpfile).inode].toblock[0] = findanemptysector();
 		
 		char data[512] = "";
@@ -531,7 +532,7 @@ int sfs_fwrite(int fileID, char *buffer, int length) {
 			(*maindisk).inode[inode].size = (*mainfptab).pos[i];
 			
 			free(thisfile);
-			return (*maindisk).inode[inode].size - prevsize;
+			return ( (*maindisk).inode[inode].size - prevsize );
 		}
 		return -1;
 } /* !sfs_fwrite */
