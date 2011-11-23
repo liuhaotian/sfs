@@ -447,6 +447,9 @@ int sfs_fread(int fileID, char *buffer, int length) {
     // grab the inode from the file table
 		int i = fileID - 1;
 		
+		if (i < 0 || i > MAXFPTAB - 1)
+			return -1;
+
 		int inode;
 		if ( (inode = (*mainfptab).fptab[i]) == 0)
 			return -1;
@@ -507,7 +510,7 @@ int sfs_fwrite(int fileID, char *buffer, int length) {
 		
 		// Case 2: r/w pos + length > numsectors * SECTORSIZE
 		else {
-			int newnumsector = ((*mainfptab).pos[i] + length) / SD_SECTORSIZE;
+			int newnumsector = (((*mainfptab).pos[i] + length) / SD_SECTORSIZE ) + 1;
 			while (1) {
 				if ((*maindisk).inode[inode].numsector == newnumsector)
 					break;
