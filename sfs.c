@@ -32,8 +32,8 @@
 
 typedef struct {//	i-node structure
 	//	some attributes
+	int size;
 	int numsector;// how many sectors is been used
-	int size;//		0 for dir, amount of bytes for the file
 	int	status;//	0 means unused, 1 means it is a directory, 2 means it is a file
 	int	toblock[7];//	to the sector ID
 	int	toinode;// to next inode
@@ -117,22 +117,6 @@ int sfs_mkfs() {
 	file_t* upperdir;//	".."
 	thisdir = (void*)maindisk + (*maindisk).inode[0].toblock[0] * SD_SECTORSIZE;
 	upperdir = (void*)maindisk + (*maindisk).inode[0].toblock[0] * SD_SECTORSIZE + sizeof(file_t);
-	
-	//	file test for George code begin
-	file_t* atest;//test.txt
-	atest = (void*)maindisk + (*maindisk).inode[0].toblock[0] * SD_SECTORSIZE + 2 * sizeof(file_t);
-	
-	strcpy((*atest).name, "test.txt");
-	(*atest).inode = 1;// point to a new inode
-	
-	(*maindisk).inode[1].numsector = 1;
-	(*maindisk).inode[1].status = 2;
-	(*maindisk).inode[1].toblock[0] = sizeof(disk_t)/SD_SECTORSIZE + 1 * (sizeof(disk_t)%SD_SECTORSIZE != 0) +1;//	next available sector
-	fillbitmap((*maindisk).inode[1].toblock[0]);
-	char testtxt[512] = "This is a test file. The file name is test.txt. There should be a EOF sign, but I haven't implemented it yet.";
-	while(SD_write((*maindisk).inode[1].toblock[0], testtxt));
-	
-	//	file test code end
 	
 	strcpy((*thisdir).name, ".");
 	strcpy((*upperdir).name, "..");
@@ -392,6 +376,7 @@ int sfs_fopen(char* name) {
 
 		strcpy( (*tmpfile).name, name); // copy our name to the tmpfile
 		(*tmpfile).inode = findanemptyinode();
+		inode_write(cwd, currentdir); // write it back
 		if ((*tmpfile).inode == -1) { // couldn't find an empty inode
 			free(currentdir);
 			return -1; 	
@@ -399,6 +384,10 @@ int sfs_fopen(char* name) {
 		(*maindisk).inode[(*tmpfile).inode].numsector = 1; // initialize our new file's inode values
 		(*maindisk).inode[(*tmpfile).inode].status = 2; // a file
 		(*maindisk).inode[(*tmpfile).inode].toblock[0] = findanemptysector();
+		
+		char data[512] = "";
+		while(SD_write((*maindisk).inode[(*tmpfile).inode].toblock[0], (void*)data));
+		
 		if ((*maindisk).inode[(*tmpfile).inode].toblock[0] == -1) { // couldn't find an empty sector for file's data
 			free(currentdir);
 			return -1;
@@ -412,7 +401,7 @@ int sfs_fopen(char* name) {
 	int i = 0;
 	while (i < MAXFPTAB)
 	{
-		if ( ((*mainfptab).fptab[i]) == 0) { // found an empty slot
+		if ( (*mainfptab).fptab[i] == 0) { // found an empty slot
 			(*mainfptab).fptab[i] = filenode; // set it to our file inode
 			free(currentdir);
 			return i + 1; // the index + 1 for the file descriptor
@@ -420,7 +409,7 @@ int sfs_fopen(char* name) {
 		i++;
 	}
 	free(currentdir);
-    return -1;
+  return -1;
 } /* !sfs_fopen */
 
 /*
@@ -437,7 +426,7 @@ int sfs_fclose(int fileID) {
 	int i = fileID - 1;
 	if ( (*mainfptab).fptab[i] != 0 ) {
 		(*mainfptab).fptab[i] = 0;
-		(*mainfptab).pos[i] = 0;
+		(*mainfptab).pos[i] = 0; //set our position back to zero
 		return 0;
 	}
     return -1;
@@ -454,8 +443,29 @@ int sfs_fclose(int fileID) {
  *
  */
 int sfs_fread(int fileID, char *buffer, int length) {
-    // TODO: Implement
-    return -1;
+    // grab the inode from the file table
+		int i = fileID - 1;
+		
+		int inode;
+		if ( (inode = (*mainfptab).fptab[i]) == 0)
+			return -1;
+		
+		// check paramaters for trickery
+		if (((*mainfptab).pos[i] + length > (*maindisk).inode[inode].size)) // rescale the length to fit within bounds
+			length = (*maindisk).inode[inode].size - (*mainfptab).pos[i];
+		if (length <= 0)
+			return -1;
+			
+		void* thisfile = inode_read(inode);
+		
+		memcpy(buffer, thisfile + (*mainfptab).pos[i], length); // copying file from the current read/write position into buffer by length
+		
+		// and set the new pos
+		(*mainfptab).pos[i] += length;
+		
+		free(thisfile);
+		
+		return length;
 }
 
 /*
@@ -469,8 +479,61 @@ int sfs_fread(int fileID, char *buffer, int length) {
  *
  */
 int sfs_fwrite(int fileID, char *buffer, int length) {
-    // TODO: Implement
-    return -1;
+		// grab the inode from the file table
+		int i = fileID - 1;
+		
+		int inode;
+		if ( (inode = (*mainfptab).fptab[i]) == 0)
+			return -1;
+		
+		// check for trickery
+		if (length <= 0)
+			return -1;
+		
+		void *thisfile = inode_read(inode); // the data stream of the file initially on the disk
+		
+		// 2 cases 
+		// Case 1: r/w pos + length <= numsectors * SECTORSIZE
+		if ((*mainfptab).pos[i] + length <= (*maindisk).inode[inode].numsector * SD_SECTORSIZE) {
+			memcpy(thisfile + (*mainfptab).pos[i], buffer, length); // copy buffer to the file 
+			inode_write(inode, thisfile); // write back to disk
+			
+			(*mainfptab).pos[i] += length;
+			(*maindisk).inode[inode].size = ((*mainfptab).pos[i] > (*maindisk).inode[inode].size)? (*mainfptab).pos[i] : (*maindisk).inode[inode].size;
+			free(thisfile);
+			return length;
+		}
+		
+		// Case 2: r/w pos + length > numsectors * SECTORSIZE
+		else {
+			int newnumsector = ((*mainfptab).pos[i] + length) / SD_SECTORSIZE;
+			while (1) {
+				if ((*maindisk).inode[inode].numsector == newnumsector)
+					break;
+				
+				if (inode_append(inode)) // append the new sector onto our inode_append, which also increases numsector
+					return -1;
+			}
+			
+			// now we should have enough space
+			// malloc a new temporary file
+			void *tempfile = malloc((*maindisk).inode[inode].numsector * SD_SECTORSIZE);
+			
+			// now copy the old memory to the new malloc'ed file
+			memcpy(tempfile, thisfile, (*maindisk).inode[inode].size);
+			free(thisfile);
+			thisfile = tempfile;
+			
+			memcpy(thisfile + (*mainfptab).pos[i], buffer, length); // copy buffer to the file 
+			inode_write(inode, thisfile); // write back to disk
+			(*mainfptab).pos[i] += length;
+			int prevsize = (*maindisk).inode[inode].size;
+			(*maindisk).inode[inode].size = (*mainfptab).pos[i];
+			
+			free(thisfile);
+			return (*maindisk).inode[inode].size - prevsize;
+		}
+		return -1;
 } /* !sfs_fwrite */
 
 /*
@@ -484,8 +547,21 @@ int sfs_fwrite(int fileID, char *buffer, int length) {
  *
  */
 int sfs_lseek(int fileID, int position) {
-    // TODO: Implement
-    return -1;
+    // grab the inode from the file table
+		int i = fileID - 1;
+		
+		int inode;
+		if ( (inode = (*mainfptab).fptab[i]) == 0)
+			return -1;
+		
+		// check paramaters for trickery
+		if (position <= 0)
+			return -1;
+		
+		// and set the new pos
+		(*mainfptab).pos[i] = position;
+		
+		return position;
 } /* !sfs_lseek */
 
 /*
@@ -540,7 +616,6 @@ void emptybitmap(int sector){
 
 void init_inode(inode_t* inode){
 	(*inode).status = 0;
-	(*inode).size = 0;
 	(*inode).numsector = 0;
 	int i;
 	for(i = 0; i < 7; ++i)
