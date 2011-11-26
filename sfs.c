@@ -425,6 +425,10 @@ int sfs_fopen(char* name) {
 int sfs_fclose(int fileID) {
     // just free the table array entry for index fileID, return 0
 	int i = fileID - 1;
+
+	if (i < 0 || i > MAXFPTAB - 1) // don't allow out of bounds array checks
+			return -1;
+
 	if ( (*mainfptab).fptab[i] != 0 ) {
 		(*mainfptab).fptab[i] = 0;
 		(*mainfptab).pos[i] = 0; //set our position back to zero
@@ -447,7 +451,7 @@ int sfs_fread(int fileID, char *buffer, int length) {
     // grab the inode from the file table
 		int i = fileID - 1;
 		
-		if (i < 0 || i > MAXFPTAB - 1)
+		if (i < 0 || i > MAXFPTAB - 1) // don't allow out of bounds array checks
 			return -1;
 
 		int inode;
@@ -485,6 +489,9 @@ int sfs_fread(int fileID, char *buffer, int length) {
 int sfs_fwrite(int fileID, char *buffer, int length) {
 		// grab the inode from the file table
 		int i = fileID - 1;
+
+		if (i < 0 || i > MAXFPTAB - 1) // don't allow out of bounds array checks
+			return -1;
 		
 		int inode;
 		if ( (inode = (*mainfptab).fptab[i]) == 0)
@@ -535,7 +542,7 @@ int sfs_fwrite(int fileID, char *buffer, int length) {
 			(*maindisk).inode[inode].size = (*mainfptab).pos[i];
 			
 			free(thisfile);
-			return ( (*maindisk).inode[inode].size - prevsize );
+			return ( (*maindisk).inode[inode].size - prevsize + 1);
 		}
 		return -1;
 } /* !sfs_fwrite */
@@ -553,13 +560,16 @@ int sfs_fwrite(int fileID, char *buffer, int length) {
 int sfs_lseek(int fileID, int position) {
     // grab the inode from the file table
 		int i = fileID - 1;
+
+		if (i < 0 || i > MAXFPTAB - 1) // don't allow out of bounds array checks
+			return -1;
 		
 		int inode;
 		if ( (inode = (*mainfptab).fptab[i]) == 0)
 			return -1;
 		
 		// check paramaters for trickery
-		if (position <= 0)
+		if (position <= 0 || position >= (*maindisk).inode[inode].size)
 			return -1;
 		
 		// and set the new pos
