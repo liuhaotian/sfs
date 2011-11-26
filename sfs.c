@@ -542,7 +542,7 @@ int sfs_fwrite(int fileID, char *buffer, int length) {
 			(*maindisk).inode[inode].size = (*mainfptab).pos[i];
 			
 			free(thisfile);
-			return ( (*maindisk).inode[inode].size - prevsize);
+			return (((*maindisk).inode[inode].size - prevsize) > length)?((*maindisk).inode[inode].size - prevsize):length;
 		}
 		return -1;
 } /* !sfs_fwrite */
