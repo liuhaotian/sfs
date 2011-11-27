@@ -153,7 +153,20 @@ int sfs_mkdir(char *name) {
 	
 	//	find a place to save the "dir" file within the cwd
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
+	int i = 0;
+	for(i = 0; name[i] != 0; ++i)
+	{
+		if(name[i] == '/'){
+			return -1;
+		}
+	}
 	while(1){
+		if ( !strcmp( (*tmpfile).name, name )) { // found a matching file
+			if((*maindisk).inode[(*tmpfile).inode].status == 1){
+				//	yes it is also a dir
+				return -1;
+			}
+		}
 		tmpfile = (void*)tmpfile + sizeof(file_t);
 		
 		if((void*)tmpfile >= tmpend){

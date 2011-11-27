@@ -248,17 +248,95 @@ int initFSTest() {
  */
 int customTest() {
     int hr = SUCCESS;
+	int i, j;
+    char *randomBuf;//buffer contain junk data, size: SD_SECTORSIZE
+	randomBuf = (char *) malloc(sizeof(char) * SD_SECTORSIZE);
+	
+	// normal test from testfs
+    // initialize disk
+    FAIL_BRK4(SD_initDisk());
+    for (i = 0; i < SD_NUMSECTORS; i++) {
+        for (j = 0; j < SD_SECTORSIZE; j++) {
+            randomBuf[j] = (char) rand();
+        }
+		while (SD_write(i, (void*) randomBuf));
+    }
+	FAIL_BRK4(SD_loadDisk(gsDiskFName));
+	refreshDisk();
 
-    FAIL_BRK4(initAndLoadDisk());
+    // initialize fs, sfs_mkfs
     FAIL_BRK4(initFS());
+	refreshDisk();
+	
+	// initialize test sfs_mkfs, when mkfs, nothing should appear again.
+    FAIL_BRK4(initFS());
+	FAIL_BRK4(sfs_mkdir("foo"));
+	refreshDisk();
+	FAIL_BRK4(sfs_fcd("foo"));
+	FAIL_BRK4(sfs_mkdir("bar"));
+	FAIL_BRK4(initFS());
+	refreshDisk();
+	FAIL_BRK4((sfs_fcd("foo") != -1));
+	FAIL_BRK4((sfs_fcd("bar") != -1));
+	FAIL_BRK4(sfs_fcd("/"));
+	FAIL_BRK4((sfs_fcd("foo") != -1));
+	FAIL_BRK4((sfs_fcd("bar") != -1));
+	FAIL_BRK4(sfs_mkdir("foo"));
+	refreshDisk();
+	FAIL_BRK4(sfs_fcd("foo"));
+	FAIL_BRK4((sfs_fcd("bar") != -1));
 
-    // TODO: Implement
+	//normal test . and ..
+	FAIL_BRK4(initFS());
+	refreshDisk();
+	FAIL_BRK4((sfs_mkdir(".") != -1));
+	FAIL_BRK4(sfs_mkdir(".foo."));
+	FAIL_BRK4(sfs_mkdir(".foo"));
+	FAIL_BRK4((sfs_mkdir("..") != -1));
+	FAIL_BRK4(sfs_mkdir("..foo"));
+	FAIL_BRK4(sfs_mkdir("..foo.."));
+	FAIL_BRK4((sfs_mkdir("/") != -1));
+	FAIL_BRK4(sfs_mkdir("..."));
+	FAIL_BRK4(sfs_mkdir("...."));
+	FAIL_BRK4((sfs_mkdir("./") != -1));
+	FAIL_BRK4((sfs_mkdir("/.") != -1));
+	FAIL_BRK4((sfs_mkdir("./.") != -1));
+	
+	//test dir takes more that one sector
+
+/*	
+    FAIL_BRK4(createFolder("bar"));
+	FAIL_BRK4(sfs_fcd("bar"));
+	FAIL_BRK4(createFolder("foo"));	
+	FAIL_BRK4(sfs_fcd("foo"));
+	FAIL_BRK4(sfs_fcd("/bar/foo"));
+//	FAIL_BRK3((sfs_fcd("//bar/foo") != -1), stdout, "Error: sfs_fcd() failed\n");
+	FAIL_BRK4(sfs_fcd("/../bar/foo"));
+	FAIL_BRK4(sfs_fcd("/../bar/foo/"));
+	FAIL_BRK4(sfs_fcd("/"));
+	FAIL_BRK3(sfs_ls(f_ls), stdout, "Error: sfs_ls() failed\n");
+	FAIL_BRK4(sfs_fcd("/bar"));
+	FAIL_BRK3(sfs_ls(f_ls), stdout, "Error: sfs_ls() failed\n");
+	
+	//int fopentmp;
+	//FAIL_BRK3((fopentmp = sfs_fopen("test.txt") != -1), stdout, "Error: Allowing read from unopened file\n");
+	//FAIL_BRK3((sfs_fread(fopentmp, buf, 50) != -1), stdout, "Error: Allowing read from unopened file\n");
+
+    // test if fcd does not allow going to places that does not exist
+    FAIL_BRK3((sfs_fcd("bla") != -1), stdout,
+            "Error: Allowing cd to folder that does not exist\n");
+    FAIL_BRK3((sfs_fcd("x") != -1), stdout,
+            "Error: Allowing cd to folder that does not exist\n");
+    FAIL_BRK3((sfs_fcd("x/y/x/z") != -1), stdout,
+            "Error: Allowing cd to folder that does not exist\n");
+*/
 
     Fail:
 
     //clean up code goes here
+	SAFE_FREE(randomBuf);
     saveAndCloseDisk();
-    PRINT_RESULTS("!!!!!!!!!Name your test Test");
+    PRINT_RESULTS("customTest!");
     return hr;
 }
 
