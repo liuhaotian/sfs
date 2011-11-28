@@ -248,7 +248,7 @@ int initFSTest() {
  */
 int customTest() {
     int hr = SUCCESS;
-	int i, j, fd;
+	int i, j, fd, fd1, fd2;
     char *randomBuf;//buffer contain junk data, size: SD_SECTORSIZE
 	randomBuf = (char *) malloc(sizeof(char) * SD_SECTORSIZE);
 	
@@ -325,6 +325,17 @@ int customTest() {
 	FAIL_BRK4((fd = sfs_fopen("foo.bin")) == -1);
 	FAIL_BRK4(sfs_fclose(fd));
 	FAIL_BRK4((sfs_fcd("foo.bin") != -1));
+	
+	//test same name
+	FAIL_BRK4(initFS());
+	refreshDisk();
+	
+	FAIL_BRK4(sfs_mkdir("foo.bin"));
+	FAIL_BRK4((fd = sfs_fopen("foo.bin")) != -1);
+	
+	FAIL_BRK4((fd = sfs_fopen("bar.bin")) == -1);
+	FAIL_BRK4((sfs_mkdir("bar.bin") != -1));
+
 	
 /*	
     FAIL_BRK4(createFolder("bar"));

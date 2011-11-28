@@ -163,10 +163,11 @@ int sfs_mkdir(char *name) {
 	}
 	while(1){
 		if ( !strcmp( (*tmpfile).name, name )) { // found a matching file
-			if((*maindisk).inode[(*tmpfile).inode].status == 1){
+			return -1;
+			/*if((*maindisk).inode[(*tmpfile).inode].status == 1){
 				//	yes it is also a dir
 				return -1;
-			}
+			}*/
 		}
 		tmpfile = (void*)tmpfile + sizeof(file_t);
 		
@@ -362,6 +363,10 @@ int sfs_fopen(char* name) {
 		}
 
 		if ( !strcmp( (*tmpfile).name, name )) { // found a matching file
+			if((*maindisk).inode[(*tmpfile).inode].status == 1){
+					//	yes it is also a dir
+					return -1;
+			}
 			filenode = (*tmpfile).inode; // set the inode			
 			break;
 		}
