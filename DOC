@@ -1,0 +1,34 @@
+sfs - A simple file system by Haotian Liu and George Wheaton
+
+	Our implementation of a file system includes a fixed set of inodes allocated at the start of the disk.
+Each inode corresponds to either a file or directory (we treat directories as a file that simply stores
+the names of its associated files and directories, as well as . and .. to represent itself and its
+parent directory). When the user creates a file or directory, we look through our allocated set of inodes
+for an unused one and return it for use. 
+	Our inode data structure consists of the size of data associated with it, the number of sectors 
+associated with it, its status (0 for unused, 1 for directory, 2 for file), seven index blocks of sector 
+IDs, and a pointer to the next inode if it needs more than 7 sectors.
+	When a user opens a file, we find an open spot among our file descriptor table which we allocate
+to program memory. This table contains two side-by-side or corresponding arrays, such that one array 
+at index i contains the inode array int for an opened file and the second array at index i contains a position 
+integer that stores where we are reading/writing from (initially the beginning of the file) for that file.
+	We also include a bitmap in memory on the disk that keeps track of which sectors are allocated to a file
+or not.
+	
+	An important design decision we made was to include helper functions that would be used multiple times
+throughout the application interface functions. fillbitmap(int sector) and emptybitmap(int sector) take a
+sector number and changes our bitmap to 1 or 0. findanemptysector() and finanemptyinode() search through
+our bitmap and inode array for the first unused and return it. In addition, we found it useful to include
+inode operations that read and order sequentially an inode's toblock data. That way, if we want to read a
+file we just find its inode int through our file descriptor table, call inode_read and now we have a sequential
+array of all the data for the file. We can then use our position from our table and start reading. These
+helper functions provide an abstraction for us so that we do not have to worry about our data structures
+as much when implementing the interface functions (fwrite, fread, mkdir, etc.).
+	Also, we thought about using a special EOF ASCII char to dictate how far we could read to in our files 
+(we would just read the length given until we reached the length or hit an EOF char). However, we decided
+to just include a data member size to our inode so that we know exactly how much data each file has. This way,
+we can avoid errors when dealign with data that contains the EOF character as important data. We then used
+this decision as a catalyst for a part of our competition test which creates a file of all possible ASCII
+chars and then tries to read it to make sure we get back the entire file and not something that stops
+at some EOF char because it assumes that is the end of the data.
+	
