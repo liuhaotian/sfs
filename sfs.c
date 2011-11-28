@@ -154,6 +154,10 @@ int sfs_mkdir(char *name) {
 	
 	//	find a place to save the "dir" file within the cwd
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
+	if(name[0] == 0)
+	{
+		return -1;
+	}
 	int i = 0;
 	for(i = 0; name[i] != 0; ++i)
 	{
@@ -353,7 +357,18 @@ int sfs_fopen(char* name) {
 
 	int filenode; // storing inode index
 	int newfile = 0; // to continue and make newfile or not
-
+	
+	int j = 0;
+	for(j = 0; name[j] != 0; ++j)
+	{
+		if(name[j] == '/'){
+			return -1;
+		}
+	}
+	if(name[0] == 0)
+	{
+		return -1;
+	}
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + currentdir - sizeof(file_t); // last file
 	while (1) {		
 		// look through cwd for name match

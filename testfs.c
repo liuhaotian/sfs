@@ -248,7 +248,7 @@ int initFSTest() {
  */
 int customTest() {
     int hr = SUCCESS;
-	int i, j, fd, fd1, fd2;
+	int i, j, fd;
     char *randomBuf;//buffer contain junk data, size: SD_SECTORSIZE
 	randomBuf = (char *) malloc(sizeof(char) * SD_SECTORSIZE);
 	
@@ -342,6 +342,45 @@ int customTest() {
 	FAIL_BRK4((fd = sfs_fopen("foo.bin")) == -1);
 	FAIL_BRK4(initFS());
 	FAIL_BRK4((sfs_fclose(fd) != -1));
+	
+	//test create nothing
+	FAIL_BRK4(initFS());
+	refreshDisk();
+	
+	FAIL_BRK4((sfs_mkdir("") != -1));
+	FAIL_BRK4((fd = sfs_fopen("")) != -1);
+	
+	//test open . and ..
+	FAIL_BRK4(initFS());
+	refreshDisk();
+	
+	FAIL_BRK4((fd = sfs_fopen("/")) != -1);
+	FAIL_BRK4((fd = sfs_fopen(".")) != -1);
+	FAIL_BRK4((fd = sfs_fopen("..")) != -1);
+	
+	FAIL_BRK4(sfs_mkdir("foo"));
+	FAIL_BRK4((fd = sfs_fopen("foo")) != -1);
+	FAIL_BRK4(sfs_fcd("foo"));
+	
+	FAIL_BRK4((fd = sfs_fopen("/")) != -1);
+	FAIL_BRK4((fd = sfs_fopen(".")) != -1);
+	FAIL_BRK4((fd = sfs_fopen("..")) != -1);
+	
+	FAIL_BRK4(sfs_fcd("/"));
+	FAIL_BRK4((fd = sfs_fopen("/.")) != -1);
+	FAIL_BRK4((fd = sfs_fopen("./")) != -1);
+	FAIL_BRK4((fd = sfs_fopen("./.")) != -1);
+	FAIL_BRK4((fd = sfs_fopen("/..")) != -1);
+	FAIL_BRK4((fd = sfs_fopen("../")) != -1);
+	FAIL_BRK4((fd = sfs_fopen("../..")) != -1);
+	FAIL_BRK4((fd = sfs_fopen("//")) != -1);
+	FAIL_BRK4((fd = sfs_fopen(".foo")) == -1);
+	FAIL_BRK4((fd = sfs_fopen(".foo.")) == -1);
+	FAIL_BRK4((fd = sfs_fopen("..foo")) == -1);
+	FAIL_BRK4((fd = sfs_fopen("..foo..")) == -1);
+	FAIL_BRK4((fd = sfs_fopen("...")) == -1);
+	FAIL_BRK4((fd = sfs_fopen(".....")) == -1);
+	
 	
 	
 /*	
