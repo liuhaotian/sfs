@@ -336,6 +336,13 @@ int customTest() {
 	FAIL_BRK4((fd = sfs_fopen("bar.bin")) == -1);
 	FAIL_BRK4((sfs_mkdir("bar.bin") != -1));
 
+	//test initFS will erase the file descriptor
+	FAIL_BRK4(initFS());
+	refreshDisk();
+	FAIL_BRK4((fd = sfs_fopen("foo.bin")) == -1);
+	FAIL_BRK4(initFS());
+	FAIL_BRK4((sfs_fclose(fd) != -1));
+	
 	
 /*	
     FAIL_BRK4(createFolder("bar"));
