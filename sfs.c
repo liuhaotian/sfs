@@ -150,6 +150,7 @@ int sfs_mkfs() {
 int sfs_mkdir(char *name) {
 	void* thisdir = inode_read(cwd);
 	file_t* tmpfile = thisdir;
+	char data[512]="";
 	
 	//	find a place to save the "dir" file within the cwd
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
@@ -178,6 +179,7 @@ int sfs_mkdir(char *name) {
 			void* tmpdir = malloc((*maindisk).inode[cwd].numsector * SD_SECTORSIZE);// use a new memory
 			tmpfile = tmpdir + ((void*)tmpfile - thisdir);
 			memcpy(tmpdir, thisdir, ((*maindisk).inode[cwd].numsector - 1 )* SD_SECTORSIZE);
+			memcpy(tmpdir + ((*maindisk).inode[cwd].numsector - 1 )* SD_SECTORSIZE, data, SD_SECTORSIZE);
 			free(thisdir);
 			thisdir = tmpdir;
 			break;
@@ -202,7 +204,7 @@ int sfs_mkdir(char *name) {
 	}
 	fillbitmap((*maindisk).inode[(*tmpfile).inode].toblock[0]);
 	
-	char data[512]="";
+	
 	
 	file_t* newdir;//	"."
 	file_t* upperdir;//	".."
