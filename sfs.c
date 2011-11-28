@@ -302,6 +302,7 @@ int sfs_fcd(char* name) {
 int sfs_ls(FILE* f) {
 	void* thisdir = inode_read(cwd);
 	file_t* tmpfile = thisdir;
+	char temp[17];
 	
 	//	find all the file within the cwd
 	void* tmpend = (*maindisk).inode[cwd].numsector * SD_SECTORSIZE + thisdir - sizeof(file_t);//	the last file
@@ -318,7 +319,10 @@ int sfs_ls(FILE* f) {
 			tmpfile = (void*)tmpfile + sizeof(file_t);
 			continue;
 		}
-		fprintf(f, "%s\n", (*tmpfile).name);
+		strncpy(temp, (*tmpfile).name, 16);
+		temp[16] = 0;
+		fprintf(f, "%s\n", temp);
+		//fprintf(f, "%s\n", (*tmpfile).name);
 		//puts((*tmpfile).name);
 		tmpfile = (void*)tmpfile + sizeof(file_t);
 	}
@@ -366,7 +370,9 @@ int sfs_fopen(char* name) {
 	if (newfile) { // need to create a newfile	
 		// get inode, add file_t to end of cwd, and set filenode to the inode
 		tmpfile = currentdir;
+		char data[512] = "";
 		while (1) {
+
 			tmpfile = (void*)tmpfile + sizeof(file_t);
 			
 			if ( (void*)tmpfile >= tmpend ) { // not enough space, need to append our inode with additional sector
@@ -379,6 +385,7 @@ int sfs_fopen(char* name) {
 				tmpfile = tmp + ((void*)tmpfile - currentdir);
 				
 				memcpy(tmp, currentdir, ((*maindisk).inode[cwd].numsector - 1) * SD_SECTORSIZE);
+				memcpy(tmp + ((*maindisk).inode[cwd].numsector - 1) * SD_SECTORSIZE, data, SD_SECTORSIZE);
 				free(currentdir);
 				currentdir = tmp;
 				break;
@@ -399,7 +406,7 @@ int sfs_fopen(char* name) {
 		(*maindisk).inode[(*tmpfile).inode].size = 0; //size
 		(*maindisk).inode[(*tmpfile).inode].toblock[0] = findanemptysector();
 		
-		char data[512] = "";
+		
 		while(SD_write((*maindisk).inode[(*tmpfile).inode].toblock[0], (void*)data));
 		
 		if ((*maindisk).inode[(*tmpfile).inode].toblock[0] == -1) { // couldn't find an empty sector for file's data
