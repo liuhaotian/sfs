@@ -248,7 +248,7 @@ int initFSTest() {
  */
 int customTest() {
     int hr = SUCCESS;
-	int i, j;
+	int i, j, fd;
     char *randomBuf;//buffer contain junk data, size: SD_SECTORSIZE
 	randomBuf = (char *) malloc(sizeof(char) * SD_SECTORSIZE);
 	
@@ -301,7 +301,7 @@ int customTest() {
 	FAIL_BRK4((sfs_mkdir("./") != -1));
 	FAIL_BRK4((sfs_mkdir("/.") != -1));
 	FAIL_BRK4((sfs_mkdir("./.") != -1));
-
+	
 	// ascii code test, make a file containing all ascii code chars to make sure implementation does not use an EOF char for size
 	FAIL_BRK4(initFS());
 	refreshDisk();
@@ -314,11 +314,18 @@ int customTest() {
 	asciidata[256] = 255;
 	// now fwrite into the a file and fread and compare
 	FAIL_BRK4(createSmallFile("asciitable", asciidata, 257));
+	refreshDisk();
 	FAIL_BRK4(verifyFile("asciitable", asciidata, 257));
 	
-	
 	//test dir takes more that one sector
-
+	
+	//test for file
+	FAIL_BRK4(initFS());
+	refreshDisk();
+	FAIL_BRK4((fd = sfs_fopen("foo.bin")) == -1);
+	FAIL_BRK4(sfs_fclose(fd));
+	FAIL_BRK4((sfs_fcd("foo.bin") != -1));
+	
 /*	
     FAIL_BRK4(createFolder("bar"));
 	FAIL_BRK4(sfs_fcd("bar"));
@@ -345,8 +352,6 @@ int customTest() {
     FAIL_BRK3((sfs_fcd("x/y/x/z") != -1), stdout,
             "Error: Allowing cd to folder that does not exist\n");
 */
-
-	
 
     Fail:
 
