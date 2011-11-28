@@ -301,6 +301,21 @@ int customTest() {
 	FAIL_BRK4((sfs_mkdir("./") != -1));
 	FAIL_BRK4((sfs_mkdir("/.") != -1));
 	FAIL_BRK4((sfs_mkdir("./.") != -1));
+
+	// ascii code test, make a file containing all ascii code chars to make sure implementation does not use an EOF char for size
+	FAIL_BRK4(initFS());
+	refreshDisk();
+	char* asciidata = (char*)malloc(257 * sizeof(char)); // 257 chars, possible ascii 0 -> 255 + 255 at the end to make sure we test
+	// create data
+	for (i = 0; i < 256; i++) {
+		asciidata[i] = i; // table sequentially
+	}
+	// now put 255 in again at the end
+	asciidata[256] = 255;
+	// now fwrite into the a file and fread and compare
+	FAIL_BRK4(createSmallFile("asciitable", asciidata, 257));
+	FAIL_BRK4(verifyFile("asciitable", asciidata, 257));
+	
 	
 	//test dir takes more that one sector
 
@@ -331,9 +346,12 @@ int customTest() {
             "Error: Allowing cd to folder that does not exist\n");
 */
 
+	
+
     Fail:
 
     //clean up code goes here
+	SAFE_FREE(asciidata);
 	SAFE_FREE(randomBuf);
     saveAndCloseDisk();
     PRINT_RESULTS("customTest!");
