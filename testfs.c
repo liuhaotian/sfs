@@ -166,7 +166,6 @@ int runTests() {
     RUN_TEST(multipleOpenFilesTest());
     RUN_TEST(nestedFoldersTest());
     RUN_TEST(errorTest());
-	RUN_TEST(customTest());
 #else
     f_ls_compTest = fopen("compTest.ls", "w");
     f_ls = f_ls_compTest;
@@ -252,7 +251,7 @@ int customTest() {
 	int i, j, fd, fd1, fd2, lseek2;
     char *randomBuf;//buffer contain junk data, size: SD_SECTORSIZE
 	randomBuf = (char *) malloc(sizeof(char) * SD_SECTORSIZE);
-	
+
 	// For later tests
 	char* asciidata = (char*)malloc(257 * sizeof(char)); // 2
 	char* morealphabet = (char*)malloc(7*sizeof(char));
@@ -265,7 +264,7 @@ int customTest() {
 	morealphabet[6] = 'z';
 	char alphabet[26] = "abcdefghijklmnopqrstuvwxyz";
 	char* fd1read = (char*)malloc(26*sizeof(char));
-	
+
 	// normal test from testfs
     // initialize disk
     FAIL_BRK4(SD_initDisk());
@@ -281,7 +280,7 @@ int customTest() {
     // initialize fs, sfs_mkfs
     FAIL_BRK4(initFS());
 	refreshDisk();
-	
+
 	// initialize test sfs_mkfs, when mkfs, nothing should appear again.
     FAIL_BRK4(initFS());
 	FAIL_BRK4(sfs_mkdir("foo"));
@@ -315,7 +314,7 @@ int customTest() {
 	FAIL_BRK4((sfs_mkdir("./") != -1));
 	FAIL_BRK4((sfs_mkdir("/.") != -1));
 	FAIL_BRK4((sfs_mkdir("./.") != -1));
-	
+
 	// ascii code test, make a file containing all ascii code chars to make sure implementation does not use an EOF char for size
 	FAIL_BRK4(initFS());
 	refreshDisk();
@@ -347,23 +346,23 @@ int customTest() {
 	FAIL_BRK4((strncmp(alphabet, fd1read, 26)) != 0); // here is the comparison of strings
 	FAIL_BRK4((sfs_fclose(fd1)) == -1);
 	FAIL_BRK4((sfs_fclose(fd2)) == -1);
-	
+
 	//test dir takes more that one sector
-	
+
 	//test for file
 	FAIL_BRK4(initFS());
 	refreshDisk();
 	FAIL_BRK4((fd = sfs_fopen("foo.bin")) == -1);
 	FAIL_BRK4(sfs_fclose(fd));
 	FAIL_BRK4((sfs_fcd("foo.bin") != -1));
-	
+
 	//test same name
 	FAIL_BRK4(initFS());
 	refreshDisk();
-	
+
 	FAIL_BRK4(sfs_mkdir("foo.bin"));
 	FAIL_BRK4((fd = sfs_fopen("foo.bin")) != -1);
-	
+
 	FAIL_BRK4((fd = sfs_fopen("bar.bin")) == -1);
 	FAIL_BRK4((sfs_mkdir("bar.bin") != -1));
 
@@ -373,30 +372,30 @@ int customTest() {
 	FAIL_BRK4((fd = sfs_fopen("foo.bin")) == -1);
 	FAIL_BRK4(initFS());
 	FAIL_BRK4((sfs_fclose(fd) != -1));
-	
+
 	//test create nothing
 	FAIL_BRK4(initFS());
 	refreshDisk();
-	
+
 	FAIL_BRK4((sfs_mkdir("") != -1));
 	FAIL_BRK4((fd = sfs_fopen("")) != -1);
-	
+
 	//test open . and ..
 	FAIL_BRK4(initFS());
 	refreshDisk();
-	
+
 	FAIL_BRK4((fd = sfs_fopen("/")) != -1);
 	FAIL_BRK4((fd = sfs_fopen(".")) != -1);
 	FAIL_BRK4((fd = sfs_fopen("..")) != -1);
-	
+
 	FAIL_BRK4(sfs_mkdir("foo"));
 	FAIL_BRK4((fd = sfs_fopen("foo")) != -1);
 	FAIL_BRK4(sfs_fcd("foo"));
-	
+
 	FAIL_BRK4((fd = sfs_fopen("/")) != -1);
 	FAIL_BRK4((fd = sfs_fopen(".")) != -1);
 	FAIL_BRK4((fd = sfs_fopen("..")) != -1);
-	
+
 	FAIL_BRK4(sfs_fcd("/"));
 	FAIL_BRK4((fd = sfs_fopen("/.")) != -1);
 	FAIL_BRK4((fd = sfs_fopen("./")) != -1);
@@ -412,7 +411,21 @@ int customTest() {
 	FAIL_BRK4((fd = sfs_fopen("...")) == -1);
 	FAIL_BRK4((fd = sfs_fopen(".....")) == -1);
 	
-	
+	// test the malloc not been released
+	long int k;
+	for(k = 0; k < 100000; ++k)
+	{
+		FAIL_BRK4(sfs_mkfs());
+		FAIL_BRK4(sfs_mkdir("foo"));
+		FAIL_BRK4(sfs_fcd("foo"));
+		FAIL_BRK4(sfs_ls(f_ls));
+		FAIL_BRK4((fd = sfs_fopen("bar")) == -1);
+		FAIL_BRK4((sfs_fwrite(fd, randomBuf, SD_SECTORSIZE)) == -1);
+		FAIL_BRK4((sfs_lseek(fd, 1)) == -1);
+		FAIL_BRK4((sfs_fread(fd, randomBuf, SD_SECTORSIZE - 1)) == -1);
+		FAIL_BRK4(sfs_fclose(fd));
+	}
+
 /*	
     FAIL_BRK4(createFolder("bar"));
 	FAIL_BRK4(sfs_fcd("bar"));
