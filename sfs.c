@@ -81,8 +81,15 @@ void	inode_erase(int inode);//	erase the inode, including emptybitmap and init_i
  *
  */
 int sfs_mkfs() {
-	maindisk = malloc(sizeof(disk_t));
-	mainfptab = malloc(sizeof(fptab_t));
+//	maindisk = malloc(sizeof(disk_t));
+//	mainfptab = malloc(sizeof(fptab_t));
+	if(mainfptab == 0)
+	{
+		mainfptab = malloc(sizeof(fptab_t));
+	}
+	if(maindisk == 0){
+		maindisk = malloc(sizeof(disk_t) + 2 * SD_NUMSECTORS);
+	}
 
 	int i;
 	for(i = 0; i < MAXINODE; ++i)
