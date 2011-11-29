@@ -166,6 +166,7 @@ int runTests() {
     RUN_TEST(multipleOpenFilesTest());
     RUN_TEST(nestedFoldersTest());
     RUN_TEST(errorTest());
+	RUN_TEST(customTest());
 #else
     f_ls_compTest = fopen("compTest.ls", "w");
     f_ls = f_ls_compTest;
@@ -248,9 +249,22 @@ int initFSTest() {
  */
 int customTest() {
     int hr = SUCCESS;
-	int i, j, fd;
+	int i, j, fd, fd1, fd2, lseek2;
     char *randomBuf;//buffer contain junk data, size: SD_SECTORSIZE
 	randomBuf = (char *) malloc(sizeof(char) * SD_SECTORSIZE);
+	
+	// For later tests
+	char* asciidata = (char*)malloc(257 * sizeof(char)); // 2
+	char* morealphabet = (char*)malloc(7*sizeof(char));
+	morealphabet[0] = 't';
+	morealphabet[1] = 'u';
+	morealphabet[2] = 'v';
+	morealphabet[3] = 'w';
+	morealphabet[4] = 'x';
+	morealphabet[5] = 'y';
+	morealphabet[6] = 'z';
+	char alphabet[26] = "abcdefghijklmnopqrstuvwxyz";
+	char* fd1read = (char*)malloc(26*sizeof(char));
 	
 	// normal test from testfs
     // initialize disk
@@ -305,8 +319,9 @@ int customTest() {
 	// ascii code test, make a file containing all ascii code chars to make sure implementation does not use an EOF char for size
 	FAIL_BRK4(initFS());
 	refreshDisk();
-	char* asciidata = (char*)malloc(257 * sizeof(char)); // 257 chars, possible ascii 0 -> 255 + 255 at the end to make sure we test
+	//257 chars, possible ascii 0 -> 255 + 255 at the end to make sure we test
 	// create data
+
 	for (i = 0; i < 256; i++) {
 		asciidata[i] = i; // table sequentially
 	}
@@ -316,6 +331,22 @@ int customTest() {
 	FAIL_BRK4(createSmallFile("asciitable", asciidata, 257));
 	refreshDisk();
 	FAIL_BRK4(verifyFile("asciitable", asciidata, 257));
+
+	// This test will open the same file twice, write more onto it using one of the file descriptors to lengthen it, and read both to make sure they still match (should test to make sure size is with inodes and not the table
+	FAIL_BRK4(initFS());
+	refreshDisk();
+	FAIL_BRK4(createSmallFile("alphabet", "abcdefghijklmnopqrst", 20));
+	// Open twice
+	FAIL_BRK4((fd1 = sfs_fopen("alphabet")) == -1);
+	FAIL_BRK4((fd2 = sfs_fopen("alphabet")) == -1);
+	// lseek to end and write to second one
+	FAIL_BRK4((lseek2 = sfs_lseek(fd2, 19)) == -1);
+	FAIL_BRK4((sfs_fwrite(fd2, morealphabet, 7)) == -1);
+	// Now verify we can read from fd1 and it should be the full alphabet since we wrote to fd2 which is the same file
+	FAIL_BRK4((sfs_fread(fd1, fd1read, 26)) == -1);
+	FAIL_BRK4((strncmp(alphabet, fd1read, 26)) != 0); // here is the comparison of strings
+	FAIL_BRK4((sfs_fclose(fd1)) == -1);
+	FAIL_BRK4((sfs_fclose(fd2)) == -1);
 	
 	//test dir takes more that one sector
 	
@@ -382,7 +413,6 @@ int customTest() {
 	FAIL_BRK4((fd = sfs_fopen(".....")) == -1);
 	
 	
-	
 /*	
     FAIL_BRK4(createFolder("bar"));
 	FAIL_BRK4(sfs_fcd("bar"));
@@ -414,6 +444,8 @@ int customTest() {
 
     //clean up code goes here
 	SAFE_FREE(asciidata);
+	SAFE_FREE(morealphabet);
+	SAFE_FREE(fd1read);
 	SAFE_FREE(randomBuf);
     saveAndCloseDisk();
     PRINT_RESULTS("customTest!");
