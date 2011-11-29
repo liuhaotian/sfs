@@ -28,6 +28,8 @@
 #include "sdisk.h"
 #include "sfs.h"
 #include "config.h"
+#include <sys/resource.h>
+#include <sys/time.h>
 
 //char* program_name;
 bool gbIsVerbose = 0; // verbose mode flag
@@ -412,6 +414,12 @@ int customTest() {
 	FAIL_BRK4((fd = sfs_fopen(".....")) == -1);
 	
 	// test the malloc not been released
+	FAIL_BRK4(sfs_mkfs());
+	refreshDisk();
+	int thememmax;
+	struct rusage ru;
+	getrusage(RUSAGE_SELF, &ru);
+	thememmax=ru.ru_maxrss;
 	long int k;
 	for(k = 0; k < 100000; ++k)
 	{
@@ -425,7 +433,8 @@ int customTest() {
 		FAIL_BRK4((sfs_fread(fd, randomBuf, SD_SECTORSIZE - 1)) == -1);
 		FAIL_BRK4(sfs_fclose(fd));
 	}
-
+	getrusage(RUSAGE_SELF, &ru);
+	FAIL_BRK4(100 * thememmax <= ru.ru_maxrss);
 /*	
     FAIL_BRK4(createFolder("bar"));
 	FAIL_BRK4(sfs_fcd("bar"));
